@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Camera Giám Sát</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+        }
+
+        .cameras-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(640px, 1fr));
+            gap: 20px;
+            justify-content: center;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        .camera-container {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .camera-title {
+            font-size: 1.2em;
+            color: #333;
+            margin: 0;
+        }
+
+        .camera-status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            background-color: #4caf50;
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .camera-feed {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+            display: block;
+        }
+
+        .camera-controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #1a73e8;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .control-button:hover {
+            background-color: #1557b0;
+        }
+
+        .control-button.danger {
+            background-color: #dc3545;
+        }
+
+        .control-button.danger:hover {
+            background-color: #bb2d3b;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Hệ Thống Camera Giám Sát</h1>
+        <p>Phát hiện khói và lửa tự động</p>
+    </div>
+
+    <div class="cameras-grid">
+        <div class="camera-container">
+            <div class="camera-header">
+                <h2 class="camera-title">Camera 1</h2>
+                <span class="camera-status">Đang hoạt động</span>
+            </div>
+            <img class="camera-feed" src="{{ url_for('video_feed', camera_id='cam0') }}" alt="Camera 1">
+            <div class="camera-controls">
+                <button class="control-button" onclick="reloadCamera('cam0')">Làm mới</button>
+                <button class="control-button danger" onclick="stopCamera('cam0')">Dừng</button>
+            </div>
+        </div>
+
+        <div class="camera-container">
+            <div class="camera-header">
+                <h2 class="camera-title">Camera 2</h2>
+                <span class="camera-status">Đang hoạt động</span>
+            </div>
+            <img class="camera-feed" src="{{ url_for('video_feed', camera_id='cam1') }}" alt="Camera 2">
+            <div class="camera-controls">
+                <button class="control-button" onclick="reloadCamera('cam1')">Làm mới</button>
+                <button class="control-button danger" onclick="stopCamera('cam1')">Dừng</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function reloadCamera(cameraId) {
+            const img = document.querySelector(`img[src*="${cameraId}"]`);
+            if (img) {
+                img.src = img.src;
+            }
+        }
+
+        function stopCamera(cameraId) {
+            fetch(`/remove_camera/${cameraId}`)
+                .then(response => {
+                    if (response.ok) {
+                        const container = document.querySelector(`img[src*="${cameraId}"]`)
+                            .closest('.camera-container');
+                        const status = container.querySelector('.camera-status');
+                        status.style.backgroundColor = '#dc3545';
+                        status.textContent = 'Đã dừng';
+                    }
+                });
+        }
+    </script>
+</body>
+</html> 
