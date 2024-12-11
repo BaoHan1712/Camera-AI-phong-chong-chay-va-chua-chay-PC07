@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Camera Giám Sát</title>
+    <title>Hệ Thống Giám Sát An Toàn</title>
     <style>
         body {
             margin: 0;
             padding: 20px;
             font-family: Arial, sans-serif;
             background-color: #f0f2f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .header {
@@ -22,16 +27,14 @@
             margin-bottom: 10px;
         }
 
-        .cameras-grid {
+        .camera-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(640px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
             gap: 20px;
-            justify-content: center;
-            max-width: 1920px;
-            margin: 0 auto;
+            margin-bottom: 30px;
         }
 
-        .camera-container {
+        .camera-card {
             background: white;
             border-radius: 10px;
             padding: 15px;
@@ -42,79 +45,54 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         .camera-title {
-            font-size: 1.2em;
+            font-size: 18px;
+            font-weight: bold;
             color: #333;
-            margin: 0;
         }
 
         .camera-status {
             padding: 5px 10px;
             border-radius: 15px;
-            background-color: #4caf50;
+            font-size: 14px;
+            background: #4caf50;
             color: white;
-            font-size: 0.9em;
         }
 
         .camera-feed {
             width: 100%;
-            height: auto;
             border-radius: 5px;
-            display: block;
+            margin-bottom: 10px;
         }
 
-        .camera-controls {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .control-button {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            background-color: #1a73e8;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .control-button:hover {
-            background-color: #1557b0;
-        }
-
-        .alerts-container {
+        .alert-container {
             position: fixed;
             top: 20px;
             right: 20px;
-            max-height: 100vh;
-            overflow-y: auto;
             z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
         }
 
         .alert {
             padding: 15px 25px;
-            color: white;
+            margin-bottom: 10px;
             border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            animation: slideIn 0.5s ease-out;
-            font-size: 16px;
-            min-width: 300px;
-            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            color: white;
+            animation: slideIn 0.3s ease-out;
         }
 
-        .alert.fire {
-            background-color: #ff4444;
+        .alert-fire {
+            background-color: #f44336;
         }
 
-        .alert.smoke {
-            background-color: #ff8c00;
+        .alert-smoke {
+            background-color: #ff9800;
+        }
+
+        .alert-behavior {
+            background-color: #2196f3;
         }
 
         @keyframes slideIn {
@@ -127,93 +105,156 @@
                 opacity: 1;
             }
         }
+
+        .add-camera-form {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #1a73e8;
+            color: white;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Hệ Thống Camera Giám Sát</h1>
-        <p>Phát hiện khói và lửa tự động</p>
-    </div>
-
-    <div class="cameras-grid">
-        <div class="camera-container">
-            <div class="camera-header">
-                <h2 class="camera-title">Camera 1</h2>
-                <span class="camera-status">Đang hoạt động</span>
-            </div>
-            <img class="camera-feed" src="{{ url_for('video_feed', camera_id='cam0') }}" alt="Camera 1">
-            <div class="camera-controls">
-                <button class="control-button" onclick="reloadCamera('cam0')">Làm mới</button>
-            </div>
+    <div class="container">
+        <div class="header">
+            <h1>Hệ Thống Giám Sát An Toàn</h1>
+            <p>Phát hiện cháy, khói và hành vi nguy hiểm</p>
         </div>
 
-        <div class="camera-container">
-            <div class="camera-header">
-                <h2 class="camera-title">Camera 2</h2>
-                <span class="camera-status">Đang hoạt động</span>
-            </div>
-            <img class="camera-feed" src="{{ url_for('video_feed', camera_id='cam1') }}" alt="Camera 2">
-            <div class="camera-controls">
-                <button class="control-button" onclick="reloadCamera('cam1')">Làm mới</button>
-            </div>
+        <div class="add-camera-form">
+            <h2>Thêm Camera Mới</h2>
+            <form id="addCameraForm" onsubmit="return addCamera(event)">
+                <div class="form-group">
+                    <label>Camera ID:</label>
+                    <input type="text" id="cameraId" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Thêm Camera</button>
+            </form>
+        </div>
+
+        <div class="camera-grid" id="cameraGrid">
+            <!-- Camera cards will be added here dynamically -->
         </div>
     </div>
 
-    <div id="alertsContainer" class="alerts-container">
-    </div>
+    <div class="alert-container" id="alertContainer"></div>
 
     <script>
-        function reloadCamera(cameraId) {
-            const img = document.querySelector(`img[src*="${cameraId}"]`);
-            if (img) {
-                img.src = img.src;
+        // Khởi tạo danh sách camera
+        const cameras = new Set();
+
+        // Thêm camera mới
+        async function addCamera(event) {
+            event.preventDefault();
+            const cameraId = document.getElementById('cameraId').value;
+
+            try {
+                const response = await fetch(`/api/update-rtsp/${cameraId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    cameras.add(cameraId);
+                    addCameraCard(cameraId, data.data.name);
+                    showAlert(`Đã thêm camera ${cameraId} thành công`, 'success');
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Lỗi khi thêm camera', 'error');
             }
         }
 
-        function showAlert(cameraName, type) {
-            const alertsContainer = document.getElementById('alertsContainer');
+        // Tạo card camera
+        function addCameraCard(cameraId, name) {
+            const card = document.createElement('div');
+            card.className = 'camera-card';
+            card.innerHTML = `
+                <div class="camera-header">
+                    <span class="camera-title">${name || `Camera ${cameraId}`}</span>
+                    <span class="camera-status">Đang hoạt động</span>
+                </div>
+                <img class="camera-feed" src="/video_feed/${cameraId}" alt="Camera Feed">
+            `;
+            document.getElementById('cameraGrid').appendChild(card);
+        }
+
+        // Hiển thị cảnh báo
+        function showAlert(message, type) {
             const alert = document.createElement('div');
-            alert.className = `alert ${type}`;
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
             
-            const currentTime = new Date().toLocaleTimeString();
-            let alertText = '';
-            if (type === 'fire') {
-                alertText = `[${currentTime}] Phát hiện lửa tại ${cameraName}!`;
-            } else if (type === 'smoke') {
-                alertText = `[${currentTime}] Phát hiện khói tại ${cameraName}!`;
-            }
+            document.getElementById('alertContainer').appendChild(alert);
             
-            alert.textContent = alertText;
-            alertsContainer.appendChild(alert);
-            
-            // Tự động xóa thông báo sau 2 giây
             setTimeout(() => {
                 alert.style.opacity = '0';
-                alert.style.transform = 'translateX(100%)';
-                setTimeout(() => {
-                    alertsContainer.removeChild(alert);
-                }, 500);
-            }, 2000);
+                setTimeout(() => alert.remove(), 300);
+            }, 5000);
         }
 
+        // Kiểm tra cảnh báo định kỳ
         function checkAlerts() {
-            const cameras = ['cam0', 'cam1'];
-            cameras.forEach(cameraId => {
-                fetch(`/check_alerts/${cameraId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.has_fire) {
-                            showAlert(data.camera_name, 'fire');
-                        }
-                        if (data.has_smoke) {
-                            showAlert(data.camera_name, 'smoke');
-                        }
-                    });
+            cameras.forEach(async (cameraId) => {
+                try {
+                    // Kiểm tra cảnh báo lửa
+                    const fireResponse = await fetch(`/check_alert/${cameraId}`);
+                    const fireData = await fireResponse.json();
+                    if (fireData.note !== "none") {
+                        showAlert(fireData.note, 'fire');
+                    }
+
+                    // Kiểm tra cảnh báo khói và hành vi
+                    const warningResponse = await fetch(`/check_warning/${cameraId}`);
+                    const warningData = await warningResponse.json();
+                    if (warningData.note !== "none") {
+                        showAlert(warningData.note, 'smoke');
+                    }
+                } catch (error) {
+                    console.error('Lỗi kiểm tra cảnh báo:', error);
+                }
             });
         }
 
         // Kiểm tra cảnh báo mỗi 1 giây
         setInterval(checkAlerts, 1000);
+
+        // Thêm camera mặc định khi trang web được tải
+        window.onload = () => {
+            addCameraCard('cam0', 'Camera Chính');
+            cameras.add('cam0');
+        };
     </script>
 </body>
-</html> 
+</html>

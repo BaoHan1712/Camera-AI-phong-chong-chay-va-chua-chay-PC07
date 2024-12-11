@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 
 # Load a model
-model = YOLO("model\smoke_fire.onnx")  
+model = YOLO("model/ver2.engine")  
 print(model.names) 
     
