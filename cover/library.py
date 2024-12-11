@@ -6,5 +6,5 @@ from queue import Queue
 import time
 import os
 from datetime import datetime
-import boto3
-from botocore.retries import bucket
+# import boto3
+# from botocore.retries import bucket
