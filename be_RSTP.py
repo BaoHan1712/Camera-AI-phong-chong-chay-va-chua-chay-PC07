@@ -4,10 +4,6 @@ from send_be.send_comunitication import *
 from utils.oop import  CameraManager, RTSPCameraThread
 
 
-import warnings
-warnings.filterwarnings("ignore")
-
-
 app = Flask(__name__)
 
 alerts = {}
@@ -64,8 +60,8 @@ def generate_frames(camera_id):
                     if fire_detection_start == 0:
                         fire_detection_start = current_time
                     elif not frist_fire and (current_time - fire_detection_start) >= 0.8:
-                        send_alert_fire(camera.rtsp_url, "fire")
-                        save_detection_image(frame, "fire")
+                        file_path = save_detection_image(frame, "fire")
+                        send_alert_fire(camera.rtsp_url, "fire", file_path)
                         frist_fire = True
                         last_fire_time = current_time
 
@@ -75,11 +71,11 @@ def generate_frames(camera_id):
                     if smoke_detection_start == 0:
                         smoke_detection_start = current_time
                     elif not frist_smoke and (current_time - smoke_detection_start) >= 0.8:
-                        send_alert_smoke(camera.rtsp_url, "smoke")
-                        save_detection_image(frame, "smoke")
+                        file_path = save_detection_image(frame, "smoke")
+                        send_alert_smoke(camera.rtsp_url, "smoke", file_path)
                         frist_smoke = True
                         last_smoke_time = current_time
-                        
+
             frame = r.plot()
             
         # Reset thời gian bắt đầu nếu không phát hiện
@@ -209,4 +205,4 @@ if __name__ == '__main__':
     for cam_id, rtsp_url in rtsp_cameras.items():
         camera_manager.add_camera(cam_id, rtsp_url)
         
-    app.run(host='127.0.0.1', port=5000, threaded=True)
+    app.run(host='0.0.0.0', port=8000, threaded=True)
