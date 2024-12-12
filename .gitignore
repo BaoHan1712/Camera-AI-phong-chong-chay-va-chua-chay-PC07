@@ -27,6 +27,26 @@ env/
 # Logs
 *.log
 
+# Video
+*.mp4
+*.avi
+*.mkv
+*.m4v
+*.mov
+*.wmv
+*.flv
+
+# Image
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+# yolo
+
+*.engine
+
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
