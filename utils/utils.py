@@ -25,24 +25,20 @@ def check_and_reset_detections():
     current_time = time.time()
     
     # Reset fire detection sau 30s
-    if current_time - last_fire_time > 30 and frist_fire:
+    if current_time - last_fire_time > 15 and frist_fire:
         frist_fire = False
         fire_detection_start = 0
         
     # Reset smoke detection sau 30s  
-    if current_time - last_smoke_time > 30 and frist_smoke:
+    if current_time - last_smoke_time > 15 and frist_smoke:
         frist_smoke = False
         smoke_detection_start = 0
         
     # Reset behavior detection sau 30s
-    if current_time - last_behavior_time > 30 and frist_behavior:
+    if current_time - last_behavior_time > 15 and frist_behavior:
         frist_behavior = False
         behavior_detection_start = 0
 
-# Thêm import
-import os
-from datetime import datetime
-import boto3
 
 # Thêm hàm lưu ảnh
 def save_detection_image(frame, detection_type):
@@ -110,6 +106,21 @@ def upload_image_to_s3(filepath, detection_type):
     except Exception as e:
         print(f"❌ Lỗi khi upload lên S3: {str(e)}")
         return False
+
+def capture_and_upload_image(frame, detection_type):
+    # Lưu ảnh vào thư mục tạm thời
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'{detection_type}_{timestamp}.jpg'
+    temp_filepath = os.path.join('/tmp', filename)
+    cv2.imwrite(temp_filepath, frame)
+    
+    # Tải ảnh lên S3
+    file_path = upload_image_to_s3(temp_filepath, detection_type)
+    
+    # Xóa ảnh tạm sau khi tải lên
+    os.remove(temp_filepath)
+    
+    return file_path
 
  
         

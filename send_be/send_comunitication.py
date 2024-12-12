@@ -18,7 +18,7 @@ def send_alert_fire(rtsp_url, alert_type,file_path):
     time.sleep(0.5)  # Tránh gửi quá nhiều request
 
 # Gửi cảnh báo khói, hành vi thuốc lá tới BE
-def send_alert_smoke(rtsp_url, warning_type, file_path):
+def send_alert_smoke(rtsp_url, warning_type):
     try:
         api_url = "https://api.vinafire.cloud/api/devices/warning-to-device"
         response = requests.post(
@@ -31,7 +31,7 @@ def send_alert_smoke(rtsp_url, warning_type, file_path):
         print(f"❌ Không thể kết nối tới server API cảnh báo {warning_type}")
     except Exception as e:
         print(f"❌ Lỗi khi gửi cảnh báo {warning_type}: {str(e)}")
-    time.sleep(0.5)  # Tránh gửi quá nhiều request
+    time.sleep(0.5)  
 
 
 
