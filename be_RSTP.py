@@ -41,7 +41,7 @@ def generate_frames(camera_id):
         if frame is None:
             continue
             
-        results = camera_manager.model.predict(frame, imgsz=640, conf=0.4)
+        results = camera_manager.model.predict(frame, imgsz=640, conf=0.5)
         current_time = time.time()
         
         # Kiểm tra phát hiện lửa và khói

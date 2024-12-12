@@ -49,7 +49,7 @@ class RTSPCameraThread:
 class CameraManager:
     def __init__(self):
         self.cameras = {}
-        self.model = YOLO("model/ver2.engine")
+        self.model = YOLO("model/ver3m.onnx")
         
     def add_camera(self, camera_id, rtsp_url):
         if camera_id not in self.cameras:
