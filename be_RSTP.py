@@ -1,5 +1,5 @@
 from cover.library import *
-from utils.utils import check_and_reset_detections, save_detection_image
+from utils.utils import check_and_reset_detections,upload_image_to_s3
 from send_be.send_comunitication import *
 from utils.oop import  CameraManager, RTSPCameraThread
 
@@ -13,8 +13,18 @@ warnings = {}
 frist_fire = False 
 frist_smoke = False
 frist_behavior = False
-
 camera_manager = CameraManager()
+
+# Khởi động mô hình YOLO và thêm camera ngay khi ứng dụng bắt đầu
+def start_yolo_and_cameras():
+    rtsp_cameras = {
+        'cam0': 'rtsp://admin:admin%40123@171.247.10.90:554/cam/realmonitor?channel=1&subtype=0',
+        # 'cam1': 'rtsp://admin:password123@192.168.1.101:554/stream1',
+        # 'cam2': 'rtsp://admin:password123@192.168.1.102:554/stream1'
+    }
+    
+    for cam_id, rtsp_url in rtsp_cameras.items():
+        camera_manager.add_camera(cam_id, rtsp_url)
 
 # Luồng chạy camera chính
 def generate_frames(camera_id):
@@ -31,7 +41,7 @@ def generate_frames(camera_id):
         if frame is None:
             continue
             
-        results = camera_manager.model.predict(frame, imgsz=640, conf=0.55, verbose=False)
+        results = camera_manager.model.predict(frame, imgsz=640, conf=0.4)
         current_time = time.time()
         
         # Kiểm tra phát hiện lửa và khói
@@ -41,6 +51,7 @@ def generate_frames(camera_id):
         
         for r in results:
             boxes = r.boxes
+  
             for box in boxes:
                 c = box.cls
                 # class hành vi thuốc lá
@@ -49,8 +60,8 @@ def generate_frames(camera_id):
                     if behavior_detection_start == 0:
                         behavior_detection_start = current_time
                     elif not frist_behavior and (current_time - behavior_detection_start) >= 0.8:
-                        send_alert_smoke(camera.rtsp_url, "behavior")
-                        save_detection_image(frame, "behavior")
+                        send_alert_smoke(camera.rtsp_url, "hanh_vi", file_path)
+                        upload_image_to_s3(frame, "hanh_vi")
                         frist_behavior = True
                         last_behavior_time = current_time
         
@@ -60,8 +71,8 @@ def generate_frames(camera_id):
                     if fire_detection_start == 0:
                         fire_detection_start = current_time
                     elif not frist_fire and (current_time - fire_detection_start) >= 0.8:
-                        file_path = save_detection_image(frame, "fire")
-                        send_alert_fire(camera.rtsp_url, "fire", file_path)
+                        file_path = upload_image_to_s3(frame, "lua")
+                        send_alert_fire(camera.rtsp_url, "lua", file_path)
                         frist_fire = True
                         last_fire_time = current_time
 
@@ -71,8 +82,8 @@ def generate_frames(camera_id):
                     if smoke_detection_start == 0:
                         smoke_detection_start = current_time
                     elif not frist_smoke and (current_time - smoke_detection_start) >= 0.8:
-                        file_path = save_detection_image(frame, "smoke")
-                        send_alert_smoke(camera.rtsp_url, "smoke", file_path)
+                        file_path = upload_image_to_s3(frame, "khoi")
+                        send_alert_smoke(camera.rtsp_url, "khoi", file_path)
                         frist_smoke = True
                         last_smoke_time = current_time
 
@@ -195,14 +206,5 @@ def delete_camera(url_rtsp):
         print(f"❌ Lỗi khi xóa camera: {str(e)}")
 
 if __name__ == '__main__':
-    # Thêm các camera RTSP
-    rtsp_cameras = {
-        'cam0': 'rtsp://admin:admin%40123@192.168.1.252:554/cam/realmonitor?channel=1&subtype=0',
-        # 'cam1': 'rtsp://admin:password123@192.168.1.101:554/stream1',
-        # 'cam2': 'rtsp://admin:password123@192.168.1.102:554/stream1'
-    }
-    
-    for cam_id, rtsp_url in rtsp_cameras.items():
-        camera_manager.add_camera(cam_id, rtsp_url)
-        
+    start_yolo_and_cameras()
     app.run(host='0.0.0.0', port=8000, threaded=True)

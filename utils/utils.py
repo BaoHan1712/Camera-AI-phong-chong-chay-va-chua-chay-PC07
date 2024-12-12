@@ -42,7 +42,7 @@ def check_and_reset_detections():
 # Thêm import
 import os
 from datetime import datetime
-# import boto3
+import boto3
 
 # Thêm hàm lưu ảnh
 def save_detection_image(frame, detection_type):
@@ -69,50 +69,47 @@ def save_detection_image(frame, detection_type):
     print(f"✅ Đã lưu ảnh {detection_type} tại: {filepath}")
     return file_path
 
-# def upload_image_to_s3(filepath):
-#     # Cấu hình thông tin S3
-#     endpoint_url = 'https://atm263555-s3user.vcos.cloudstorage.com.vn'
-#     aws_access_key_id = 'atm263555-s3user'
-#     aws_secret_access_key = 'n70e2lqZaCmci3BkvSwYqP1OZtthkIJ8ZvDwCO1y'
-#     bucket_name = "atm263555-s3bucket"
+def upload_image_to_s3(filepath, detection_type):
+    # Cấu hình thông tin S3
+    endpoint_url = 'https://atm263555-s3user.vcos.cloudstorage.com.vn'
+    aws_access_key_id = 'atm263555-s3user'
+    aws_secret_access_key = 'n70e2lqZaCmci3BkvSwYqP1OZtthkIJ8ZvDwCO1y'
+    bucket_name = "atm263555-s3bucket"
 
+    try:
+        s3 = boto3.resource('s3',
+            endpoint_url=endpoint_url,
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key)
 
-#     try:
-#         s3 = boto3.resource('s3',
+        print('Connected')
 
-#             endpoint_url = endpoint_url,
+        # Kiểm tra và tạo bucket nếu chưa tồn tại
+        if not s3.Bucket(bucket_name) in s3.buckets.all():
+            s3.create_bucket(Bucket=bucket_name)
+            print('Bucket created')
 
-#             aws_access_key_id=aws_access_key_id,
-
-#             aws_secret_access_key=aws_secret_access_key)
-
-#         print('Connected')
-#         s3.create_bucket(Bucket = bucket_name) 
-
-#         print('CREEATE BUCKET ')
-
-#         # Upload file
-#         if os.path.isfile(filepath):
-#             # Lấy tên file từ đường dẫn
-#             filename = os.path.basename(filepath)
-#             # Lấy thư mục chứa file (alert hoặc warning)
-#             folder = os.path.basename(os.path.dirname(filepath))
+        # Upload file
+        if os.path.isfile(filepath):
+            # Lấy tên file từ đường dẫn
+            filename = os.path.basename(filepath)
+            # Lấy thư mục chứa file (alert hoặc warning)
+            folder = 'alert' if detection_type == 'fire' else 'warning'
             
-#             # Tạo key cho file trên S3 (folder/filename)
-#             s3_key = f"{folder}/{filename}"
+            # Tạo key cho file trên S3 (folder/filename)
+            s3_key = f"{folder}/{filename}"
             
-#             # Upload file lên S3
-#             s3.Bucket(bucket_name).upload_file(filepath, s3_key)
-#             print(f"✅ Đã upload file {filename} lên S3 bucket trong thư mục {folder}")
-#             return True
+            # Upload file lên S3
+            s3.Bucket(bucket_name).upload_file(filepath, s3_key)
+            print(f"✅ Đã upload file {filename} lên S3 bucket trong thư mục {folder}")
             
-#         else:
-#             print(f"❌ Không tìm thấy file: {filepath}")
-#             return False
+            # Tạo đường dẫn file trên S3
+            file_path = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
+            return file_path
             
-#     except Exception as e:
-#         print(f"❌ Lỗi khi upload lên S3: {str(e)}")
-#         return False
+    except Exception as e:
+        print(f"❌ Lỗi khi upload lên S3: {str(e)}")
+        return False
 
  
         

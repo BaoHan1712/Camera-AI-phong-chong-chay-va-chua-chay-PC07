@@ -8,10 +8,9 @@ def send_alert_fire(rtsp_url, alert_type,file_path):
         response = requests.post(
             api_url, 
             params={"rtspUrl": rtsp_url},
-            data={"files": file_path, "note": alert_type},
-            timeout=3
+            data={"files": 'string', "note": alert_type},
         )
-        print(f"✅ Gửi cảnh báo cháy thành công")
+        print(f"✅ Gửi cảnh báo cháy thành công")   
     except requests.exceptions.ConnectionError:
         print("❌ Không thể kết nối tới server API cảnh báo cháy")
     except Exception as e:
@@ -25,8 +24,7 @@ def send_alert_smoke(rtsp_url, warning_type, file_path):
         response = requests.post(
             api_url,
             params={"rtspUrl": rtsp_url},
-            data={"files": file_path, "note": warning_type},
-            timeout=3
+            data={"files": 'string', "note": warning_type},
         )
         print(f"✅ Gửi cảnh báo {warning_type} thành công")
     except requests.exceptions.ConnectionError:

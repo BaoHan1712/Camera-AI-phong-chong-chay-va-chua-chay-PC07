@@ -1,6 +1,6 @@
 from cover.library import *
 class RTSPCameraThread:
-    def __init__(self, rtsp_url, camera_id, width=640, height=480):
+    def __init__(self, rtsp_url, camera_id, width=720, height=540):
         self.rtsp_url = rtsp_url
         self.camera_id = camera_id
         self.width = width 
@@ -49,7 +49,7 @@ class RTSPCameraThread:
 class CameraManager:
     def __init__(self):
         self.cameras = {}
-        self.model = YOLO("model/ver2.onnx")
+        self.model = YOLO("model/ver2.engine")
         
     def add_camera(self, camera_id, rtsp_url):
         if camera_id not in self.cameras:
