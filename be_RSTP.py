@@ -1,128 +1,9 @@
 from cover.library import *
-from utils.utils import check_and_reset_detections,capture_and_upload_image
+from utils.utils import *
 from send_be.send_comunitication import *
-from utils.oop import  CameraManager, RTSPCameraThread
-
+from utils.main import *
 
 app = Flask(__name__)
-
-alerts = {}
-warnings = {}
-
-# Biến lưu trữ trạng thái cảnh báo
-frist_fire = False 
-frist_smoke = False
-frist_behavior = False
-camera_manager = CameraManager()
-
-# Thêm các biến theo dõi thời gian phát hiện
-fire_detection_start = 0
-smoke_detection_start = 0
-behavior_detection_start = 0
-last_fire_time = 0
-last_smoke_time = 0
-last_behavior_time = 0
-
-# Khởi động mô hình YOLO và thêm camera ngay khi ứng dụng bắt đầu
-def start_yolo_and_cameras():
-    rtsp_cameras = {
-        'cam0': 'rtsp://admin:admin%40123@171.239.175.190:554/cam/realmonitor?channel=1&subtype=0',
-    }
-    
-    for cam_id, rtsp_url in rtsp_cameras.items():
-        camera_manager.add_camera(cam_id, rtsp_url)
-
-# Luồng chạy camera chính
-def generate_frames(camera_id):
-    global frist_fire, frist_smoke, frist_behavior
-    global last_fire_time, last_smoke_time, last_behavior_time
-    global fire_detection_start, smoke_detection_start, behavior_detection_start
-
-    camera = camera_manager.get_camera(camera_id)
-    if not camera:
-        return
-
-    while True:
-        frame = camera.read()
-        if frame is None:
-            continue
-            
-        results = camera_manager.model.predict(frame, imgsz=640, conf=0.7,verbose=False)
-        current_time = time.time()
-        
-        # Kiểm tra phát hiện lửa và khói
-        fire_detected = False
-        smoke_detected = False
-        bahavior_detected = False
-        
-        for r in results:
-            boxes = r.boxes
-  
-            for box in boxes:
-                c = box.cls
-                # class hành vi thuốc lá
-                if c == 0:  
-                    bahavior_detected = True
-                    if behavior_detection_start == 0:
-                        behavior_detection_start = current_time
-                    elif not frist_behavior and (current_time - behavior_detection_start) >= 0.8:
-                        send_alert_smoke(camera.rtsp_url, "hanh_vi")
-                        file_path = capture_and_upload_image(frame, "hanh_vi")
-                        frist_behavior = True
-                        last_behavior_time = current_time
-        
-                # class lửa
-                elif c == 1:    
-                    fire_detected = True
-                    if fire_detection_start == 0:
-                        fire_detection_start = current_time
-                    elif not frist_fire and (current_time - fire_detection_start) >= 0.8:
-                        file_path = capture_and_upload_image(frame, "lua")
-                        send_alert_fire(camera.rtsp_url, "lua", file_path)
-                        frist_fire = True
-                        last_fire_time = current_time
-
-                # class khói
-                elif c == 2:  
-                    smoke_detected = True
-                    if smoke_detection_start == 0:
-                        smoke_detection_start = current_time
-                    elif not frist_smoke and (current_time - smoke_detection_start) >= 0.8:
-                        file_path = capture_and_upload_image(frame, "khoi")
-                        send_alert_smoke(camera.rtsp_url, "khoi")
-                        frist_smoke = True
-                        last_smoke_time = current_time
-
-            frame = r.plot()
-            
-        # Reset thời gian bắt đầu nếu không phát hiện
-        if not bahavior_detected:
-            behavior_detection_start = 0
-        if not fire_detected:
-            fire_detection_start = 0
-        if not smoke_detected:
-            smoke_detection_start = 0
-            
-        # Kiểm tra và reset các phát hiện
-        check_and_reset_detections()
-            
-        # Cập nhật trạng thái cảnh báo
-        alerts[camera_id] = {
-            'rtsp_url': camera.rtsp_url,
-            'has_fire': fire_detected,
-        }
-        warnings[camera_id] = {
-            'rtsp_url': camera.rtsp_url,
-            'has_smoke': smoke_detected,
-            'has_behavior': bahavior_detected
-        }
-            
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        
-        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
-
 
 @app.route('/video_feed/<camera_id>')
 def video_feed(camera_id):
@@ -172,22 +53,7 @@ def check_warning(camera_id):
 def index():
     return render_template('index.html')
 
-# Thêm route mới để nhận RTSP URL
-@app.route('/api/update-rtsp/<url>', methods=['POST'])
-def update_rtsp(url):
-    try:
-        # Lấy thông tin camera từ request
-        data = request.get_json()
-        camera_id = data.get('camera_id')
-        rtsp_url = data.get('rtsp_url')
-        
-            
-        # Thêm camera mới vào camera manager
-        camera_manager.add_camera(camera_id, rtsp_url)
-        print(f"✅ Đã thêm camera {camera_id} thành công")
 
-    except Exception as e:
-        print(f"❌ Lỗi khi cập nhật camera: {str(e)}")
 
 # Xóa camera
 @app.route('/api/delete-camera/<url_rtsp>', methods=['DELETE'])
@@ -199,18 +65,91 @@ def delete_camera(url_rtsp):
 
         # Kiểm tra camera có tồn tại không
         if url_rtsp in camera_manager.cameras:
+            # Dừng và xóa camera khỏi camera manager
             camera_manager.cameras[url_rtsp].stop()
             del camera_manager.cameras[url_rtsp]
 
+            # Xóa khỏi alerts và warnings
             if url_rtsp in alerts:
                 del alerts[url_rtsp]
             if url_rtsp in warnings:
                 del warnings[url_rtsp]
-                
+
+            # Đọc và cập nhật file rtsp_urls.txt
+            urls = []
+            with open('rtsp_urls.txt', 'r') as file:
+                urls = [line.strip() for line in file.readlines()]
+
+            # Xóa URL khỏi danh sách
+            if url_rtsp in urls:
+                urls.remove(url_rtsp)
+
+            # Lọc bỏ các dòng trống
+            urls = [url for url in urls if url.strip()]
+
+            # Ghi lại file với danh sách URL đã cập nhật
+            with open('rtsp_urls.txt', 'w') as file:
+                for url in urls:
+                    file.write(f"{url}\n")
+
             print(f"✅ Đã xóa camera {url_rtsp} thành công")
     except Exception as e:
         print(f"❌ Lỗi khi xóa camera: {str(e)}")
 
+@app.route('/api/get-cameras')
+def get_cameras():
+    camera_list = [{'id': cam_id, 'name': f'Camera {cam_id}'} for cam_id in camera_manager.cameras.keys()]
+    return jsonify({'cameras': camera_list})
+
+# Nhận thông tin camera 
+@app.route('/api/add-camera', methods=['POST'])
+def receive_camera():
+    try:
+        # Lấy dữ liệu từ request
+        data = request.get_json()
+        # user_id = data.get('userId')
+        # name = data.get('name')
+        rtsp_url = data.get('rtspUrl')
+        
+        # Kiểm tra RTSP URL
+        if not rtsp_url:
+            print("❌ Không tìm thấy RTSP URL")
+            return jsonify({
+                'success': False,
+                'message': 'Không tìm thấy RTSP URL'
+            }), 400
+
+        # Kiểm tra xem URL đã tồn tại chưa 
+        check_camera_exists(rtsp_url)
+
+        # Thêm camera mới vào file
+        with open('rtsp_urls.txt', 'a') as file:
+            file.write(f"{rtsp_url}\n")
+            print("✅ Đã thêm camera thành công")
+
+        # Thêm camera vào camera manager
+        camera_manager.add_camera(rtsp_url, rtsp_url)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Đã thêm camera thành công'
+        })
+
+    except Exception as e:
+        print(f"❌ Lỗi khi thêm camera: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Lỗi khi thêm camera: {str(e)}'
+        }), 500
+
+
 if __name__ == '__main__':
-    start_yolo_and_cameras()
-    app.run(host='0.0.0.0', port=8000, threaded=True)
+    try:
+        # Khởi động YOLO và thêm camera từ file txt
+        start_yolo_and_cameras()
+        print("✅ Đã khởi động hệ thống thành công")
+        
+        # Chạy Flask app
+        app.run(host='0.0.0.0', port=8000, threaded=True)
+    except Exception as e:
+        print(f"❌ Lỗi khởi động hệ thống: {str(e)}")

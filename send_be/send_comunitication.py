@@ -2,7 +2,7 @@ import requests
 import time
 
 # Gửi cảnh báo cháy tới BE
-def send_alert_fire(rtsp_url, alert_type,file_path):
+def send_alert_fire(rtsp_url, alert_type):
     try:
         api_url = "https://api.vinafire.cloud/api/devices/alert-to-device"
         response = requests.post(
@@ -15,7 +15,7 @@ def send_alert_fire(rtsp_url, alert_type,file_path):
         print("❌ Không thể kết nối tới server API cảnh báo cháy")
     except Exception as e:
         print(f"❌ Lỗi khi gửi cảnh báo cháy: {str(e)}")
-    time.sleep(0.5)  # Tránh gửi quá nhiều request
+
 
 # Gửi cảnh báo khói, hành vi thuốc lá tới BE
 def send_alert_smoke(rtsp_url, warning_type):
@@ -31,9 +31,17 @@ def send_alert_smoke(rtsp_url, warning_type):
         print(f"❌ Không thể kết nối tới server API cảnh báo {warning_type}")
     except Exception as e:
         print(f"❌ Lỗi khi gửi cảnh báo {warning_type}: {str(e)}")
-    time.sleep(0.5)  
 
 
+# Gửi trạng thái bình thường tới BE
+def normal_to_device(rtsp_url, detection_type):
+    try:
+        api_url = "https://api.vinafire.cloud/api/devices/normal-to-device"
+        response = requests.post(api_url,params={"rtspUrl": rtsp_url})
+        print(f"✅ trạng thái {detection_type} bình thường")
+    except Exception as e:
+        print(f"❌ Lỗi trạng thái {detection_type} bình thường: {str(e)}")
 
-    
+
+      
 

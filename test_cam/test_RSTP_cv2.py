@@ -2,7 +2,7 @@ import cv2
 import time
 
 # URL RTSP cho camera KBVision
-rtsp_url = "rtsp://admin:admin%40123@192.168.1.252:554/cam/realmonitor?channel=1&subtype=0"
+rtsp_url = "rtsp://admin:admin%40123@171.239.175.190:554/cam/realmonitor?channel=1&subtype=0"
 
 def connect_camera():
     print(f"Đang kết nối tới camera: {rtsp_url}")

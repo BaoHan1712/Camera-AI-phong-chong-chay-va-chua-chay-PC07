@@ -61,7 +61,7 @@ def generate_frames(camera_id):
                         fire_detection_start = current_time
                     elif not frist_fire and (current_time - fire_detection_start) >= 0.8:
                         file_path = upload_image_to_s3(frame, "fire")
-                        send_alert_fire(camera.rtsp_url, "fire", file_path)
+                        send_alert_fire(camera.rtsp_url, "fire")
                         frist_fire = True
                         last_fire_time = current_time
 
@@ -87,7 +87,7 @@ def generate_frames(camera_id):
             smoke_detection_start = 0
             
         # Kiểm tra và reset các phát hiện
-        check_and_reset_detections()
+        check_and_reset_detections(camera.rtsp_url)
             
         # Cập nhật trạng thái cảnh báo
         alerts[camera_id] = {
@@ -197,7 +197,7 @@ def delete_camera(url_rtsp):
 if __name__ == '__main__':
     # Thêm các camera RTSP
     rtsp_cameras = {
-        'cam0': 'rtsp://admin:admin%40123@171.247.10.90:554/cam/realmonitor?channel=1&subtype=0',
+        'cam0': 'rtsp://admin:admin%40123@171.247.10.90:554/cam-test/realmonitor?channel=1&subtype=0',
         # 'cam1': 'rtsp://admin:password123@192.168.1.101:554/stream1',
         # 'cam2': 'rtsp://admin:password123@192.168.1.102:554/stream1'
     }

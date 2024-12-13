@@ -44,8 +44,10 @@ env/
 *.bmp
 # yolo
 
+# Model files
 *.engine
-
+*.weights
+*.onnx
 
 # Unit test / coverage reports
 htmlcov/

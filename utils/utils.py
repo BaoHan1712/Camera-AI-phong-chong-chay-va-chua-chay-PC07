@@ -1,5 +1,10 @@
 import time
 from cover.library import *
+import sys
+import os
+# Thêm đường dẫn tới thư mục cha chứa send_be
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from send_be.send_comunitication import normal_to_device
 
 # Biến lưu trữ trạng thái cảnh báo
 frist_fire = False 
@@ -17,7 +22,7 @@ smoke_detection_start = 0
 behavior_detection_start = 0
 
 # Thêm hàm kiểm tra và reset
-def check_and_reset_detections():
+def check_and_reset_detections(rtsp_url):
     global frist_fire, frist_smoke, frist_behavior
     global last_fire_time, last_smoke_time, last_behavior_time
     global fire_detection_start, smoke_detection_start, behavior_detection_start
@@ -26,44 +31,23 @@ def check_and_reset_detections():
     
     # Reset fire detection sau 30s
     if current_time - last_fire_time > 15 and frist_fire:
+        normal_to_device(rtsp_url, "lua")
         frist_fire = False
         fire_detection_start = 0
         
     # Reset smoke detection sau 30s  
     if current_time - last_smoke_time > 15 and frist_smoke:
+        normal_to_device(rtsp_url, "khoi")
         frist_smoke = False
         smoke_detection_start = 0
         
     # Reset behavior detection sau 30s
     if current_time - last_behavior_time > 15 and frist_behavior:
+        normal_to_device(rtsp_url, "thuoc-la")
         frist_behavior = False
         behavior_detection_start = 0
 
 
-# Thêm hàm lưu ảnh
-def save_detection_image(frame, detection_type):
-
-    base_dir = '/home/pccc/2411_be_canh-bao-chay-pccc/uploads'
-    if detection_type in ['fire']:
-        save_dir = os.path.join(base_dir, 'alert')
-    else:
-        save_dir = os.path.join(base_dir, 'warning')
-        
-    os.makedirs(save_dir, exist_ok=True)
-    
-    # Tạo tên file với timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'{detection_type}_{timestamp}.jpg'
-    filepath = os.path.join(save_dir, filename)
-    
-    # Lưu ảnh
-    cv2.imwrite(filepath, frame)
-    if detection_type in ['fire']:
-        file_path = 'http://api.vinafire.cloud/images/alert/' + filepath
-    else:
-        file_path = 'http://api.vinafire.cloud/images/warning/' + filepath
-    print(f"✅ Đã lưu ảnh {detection_type} tại: {filepath}")
-    return file_path
 
 def upload_image_to_s3(filepath, detection_type):
     # Cấu hình thông tin S3
@@ -122,8 +106,20 @@ def capture_and_upload_image(frame, detection_type):
     
     return file_path
 
- 
-        
-
+# Hàm check camera có tồn tại trong file rtsp_urls.txt hay không
+def check_camera_exists(cam_id):
+    try:
+        with open('rtsp_urls.txt', 'r') as file:
+            existing_urls = file.readlines()
+            existing_urls = [url.strip() for url in existing_urls]
+            if str(cam_id) in existing_urls:
+                print("❌ Camera này đã tồn tại trong file")
+                return True
+            else:
+                print("✅ Camera chưa tồn tại trong file")
+                return False
+    except FileNotFoundError:
+        print("❌ Không tìm thấy file rtsp_urls.txt")
+        return False
         
 
