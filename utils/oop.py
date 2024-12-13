@@ -57,6 +57,16 @@ class RTSPCameraThread:
             
     def stop(self):
         self.stopped = True
+        # Đợi cho queue rỗng
+        while not self.frame_queue.empty():
+            try:
+                self.frame_queue.get_nowait()
+            except:
+                break
+        # Xóa tất cả frame trong queue
+        with self.lock:
+            while not self.frame_queue.empty():
+                self.frame_queue.get()
 
 class CameraManager:
     def __init__(self):

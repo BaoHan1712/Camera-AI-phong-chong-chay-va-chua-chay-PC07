@@ -6,21 +6,22 @@ from send_be.send_comunitication import send_alert_fire, send_alert_smoke
 alerts = {}
 warnings = {}
 
-# Biến lưu trữ trạng thái cảnh báo
-frist_fire = False 
-frist_smoke = False
-frist_behavior = False
+# Hằng số cho delay giữa các lần gửi và thời gian phát hiện
+SEND_DELAY = 25  # 25 giây
+DETECTION_THRESHOLD = 1  # 1 giây
+
+# Thời điểm gửi cảnh báo cuối cùng
+last_fire_send = 0
+last_smoke_send = 0 
+last_behavior_send = 0
+
+# Thời điểm bắt đầu phát hiện
+fire_start_time = 0
+smoke_start_time = 0
+behavior_start_time = 0
+
 camera_manager = CameraManager()
 
-# Thêm các biến theo dõi thời gian phát hiện
-fire_detection_start = 0
-smoke_detection_start = 0
-behavior_detection_start = 0
-last_fire_time = 0
-last_smoke_time = 0
-last_behavior_time = 0
-
-# Khởi động mô hình YOLO và thêm camera ngay khi ứng dụng bắt đầu
 def start_yolo_and_cameras():
     try:
         # Đọc danh sách camera từ file txt
@@ -38,7 +39,6 @@ def start_yolo_and_cameras():
             
     except FileNotFoundError:
         print("❌ Không tìm thấy file rtsp_urls.txt")
-        # Tạo file mới nếu chưa tồn tại
         with open('rtsp_urls.txt', 'w') as file:
             pass
     except Exception as e:
@@ -46,77 +46,73 @@ def start_yolo_and_cameras():
 
 # Luồng chạy camera chính
 def generate_frames(camera_id):
-    global frist_fire, frist_smoke, frist_behavior
-    global last_fire_time, last_smoke_time, last_behavior_time
-    global fire_detection_start, smoke_detection_start, behavior_detection_start
-
+    global last_fire_send, last_smoke_send, last_behavior_send
+    global fire_start_time, smoke_start_time, behavior_start_time
+    
     camera = camera_manager.get_camera(camera_id)
     if not camera:
         return
-
+        
     while True:
         frame = camera.read()
         if frame is None:
             continue
             
-        results = camera_manager.model.predict(frame, imgsz=640, conf=0.7,verbose=False)
+        results = camera_manager.model.predict(frame, imgsz=640, conf=0.6, verbose=False)
         current_time = time.time()
         
-        # Kiểm tra phát hiện lửa và khói
         fire_detected = False
         smoke_detected = False
-        bahavior_detected = False
+        behavior_detected = False
         
         for r in results:
             boxes = r.boxes
   
             for box in boxes:
                 c = box.cls
-                # class hành vi thuốc lá
-                if c == 0:  
-                    bahavior_detected = True
-                    if behavior_detection_start == 0:
-                        behavior_detection_start = current_time
-                    elif not frist_behavior and (current_time - behavior_detection_start) >= 0.8:
-                        send_alert_smoke(camera.rtsp_url, "hanh_vi")
+                
+                # Phát hiện hành vi hút thuốc
+                if c == 0:
+                    behavior_detected = True
+                    if behavior_start_time == 0:
+                        behavior_start_time = current_time
+                    elif (current_time - behavior_start_time >= DETECTION_THRESHOLD and 
+                          current_time - last_behavior_send >= SEND_DELAY):
                         file_path = capture_and_upload_image(frame, "hanh_vi")
-                        frist_behavior = True
-                        last_behavior_time = current_time
-        
-                # class lửa
-                elif c == 1:    
+                        send_alert_smoke(camera.rtsp_url, "hanh_vi")
+                        last_behavior_send = current_time
+                
+                # Phát hiện lửa        
+                elif c == 1:
                     fire_detected = True
-                    if fire_detection_start == 0:
-                        fire_detection_start = current_time
-                    elif not frist_fire and (current_time - fire_detection_start) >= 0.8:
+                    if fire_start_time == 0:
+                        fire_start_time = current_time
+                    elif (current_time - fire_start_time >= DETECTION_THRESHOLD and 
+                          current_time - last_fire_send >= SEND_DELAY):
                         file_path = capture_and_upload_image(frame, "lua")
-                        send_alert_fire(camera.rtsp_url, "lua")
-                        frist_fire = True
-                        last_fire_time = current_time
-
-                # class khói
-                elif c == 2:  
+                        send_alert_fire(camera.rtsp_url, "lua") 
+                        last_fire_send = current_time
+                
+                # Phát hiện khói
+                elif c == 2:
                     smoke_detected = True
-                    if smoke_detection_start == 0:
-                        smoke_detection_start = current_time
-                    elif not frist_smoke and (current_time - smoke_detection_start) >= 0.8:
+                    if smoke_start_time == 0:
+                        smoke_start_time = current_time
+                    elif (current_time - smoke_start_time >= DETECTION_THRESHOLD and 
+                          current_time - last_smoke_send >= SEND_DELAY):
                         file_path = capture_and_upload_image(frame, "khoi")
                         send_alert_smoke(camera.rtsp_url, "khoi")
-                        frist_smoke = True
-                        last_smoke_time = current_time
+                        last_smoke_send = current_time
 
             frame = r.plot()
             
         # Reset thời gian bắt đầu nếu không phát hiện
-        if not bahavior_detected:
-            behavior_detection_start = 0
+        if not behavior_detected:
+            behavior_start_time = 0
         if not fire_detected:
-            fire_detection_start = 0
+            fire_start_time = 0
         if not smoke_detected:
-            smoke_detection_start = 0
-            
-        # Kiểm tra và reset các phát hiện
-        check_and_reset_detections(camera.rtsp_url)
+            smoke_start_time = 0
             
         # Cập nhật trạng thái cảnh báo
         alerts[camera_id] = {
@@ -126,10 +122,11 @@ def generate_frames(camera_id):
         warnings[camera_id] = {
             'rtsp_url': camera.rtsp_url,
             'has_smoke': smoke_detected,
-            'has_behavior': bahavior_detected
+            'has_behavior': behavior_detected
         }
             
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+

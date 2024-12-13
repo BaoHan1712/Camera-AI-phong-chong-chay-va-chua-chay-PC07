@@ -30,19 +30,22 @@ def check_and_reset_detections(rtsp_url):
     current_time = time.time()
     
     # Reset fire detection sau 30s
-    if current_time - last_fire_time > 15 and frist_fire:
+    if current_time - last_fire_time > 5 and frist_fire:
+        print("✅ Đã reset fire detection")
         normal_to_device(rtsp_url, "lua")
         frist_fire = False
         fire_detection_start = 0
         
     # Reset smoke detection sau 30s  
-    if current_time - last_smoke_time > 15 and frist_smoke:
+    if current_time - last_smoke_time > 5 and frist_smoke:
+        print("✅ Đã reset smoke detection")
         normal_to_device(rtsp_url, "khoi")
         frist_smoke = False
         smoke_detection_start = 0
         
     # Reset behavior detection sau 30s
-    if current_time - last_behavior_time > 15 and frist_behavior:
+    if current_time - last_behavior_time > 5 and frist_behavior:
+        print("✅ Đã reset behavior detection")
         normal_to_device(rtsp_url, "thuoc-la")
         frist_behavior = False
         behavior_detection_start = 0
@@ -62,7 +65,7 @@ def upload_image_to_s3(filepath, detection_type):
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key)
 
-        print('Connected')
+        print('🤑 Connected 🤑')
 
         # Kiểm tra và tạo bucket nếu chưa tồn tại
         if not s3.Bucket(bucket_name) in s3.buckets.all():
@@ -85,6 +88,7 @@ def upload_image_to_s3(filepath, detection_type):
             
             # Tạo đường dẫn file trên S3
             file_path = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
+            print(f"✅ Đã upload file {filename} lên S3 bucket trong thư mục {folder}")
             return file_path
             
     except Exception as e:
@@ -92,19 +96,34 @@ def upload_image_to_s3(filepath, detection_type):
         return False
 
 def capture_and_upload_image(frame, detection_type):
+    temp_dir = 'temp'
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+    
     # Lưu ảnh vào thư mục tạm thời
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     filename = f'{detection_type}_{timestamp}.jpg'
-    temp_filepath = os.path.join('/tmp', filename)
-    cv2.imwrite(temp_filepath, frame)
+    temp_filepath = os.path.join(temp_dir, filename)
     
-    # Tải ảnh lên S3
-    file_path = upload_image_to_s3(temp_filepath, detection_type)
-    
-    # Xóa ảnh tạm sau khi tải lên
-    os.remove(temp_filepath)
-    
-    return file_path
+    try:
+        # Lưu frame thành file ảnh
+        cv2.imwrite(temp_filepath, frame)
+        
+        # Upload ảnh lên S3
+        file_path = upload_image_to_s3(temp_filepath, detection_type)
+        
+        # Xóa file tạm sau khi upload
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+            
+        return file_path
+        
+    except Exception as e:
+        print(f"❌ Lỗi khi xử lý ảnh: {str(e)}")
+        # Đảm bảo xóa file tạm nếu có lỗi
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+        return None
 
 # Hàm check camera có tồn tại trong file rtsp_urls.txt hay không
 def check_camera_exists(cam_id):
@@ -122,4 +141,6 @@ def check_camera_exists(cam_id):
         print("❌ Không tìm thấy file rtsp_urls.txt")
         return False
         
+
+
 

@@ -3,7 +3,10 @@ from utils.utils import *
 from send_be.send_comunitication import *
 from utils.main import *
 
+
 app = Flask(__name__)
+
+
 
 @app.route('/video_feed/<camera_id>')
 def video_feed(camera_id):
@@ -65,22 +68,27 @@ def delete_camera(url_rtsp):
 
         # Kiểm tra camera có tồn tại không
         if url_rtsp in camera_manager.cameras:
-            # Dừng và xóa camera khỏi camera manager
-            camera_manager.cameras[url_rtsp].stop()
+            # Dừng camera trước
+            camera = camera_manager.cameras[url_rtsp]
+            camera.stop()
+            
+            # Đợi một chút để đảm bảo thread đã dừng
+            time.sleep(0.5)
+            
+            # Sau đó mới xóa khỏi dictionary
             del camera_manager.cameras[url_rtsp]
-
+            
             # Xóa khỏi alerts và warnings
             if url_rtsp in alerts:
                 del alerts[url_rtsp]
             if url_rtsp in warnings:
                 del warnings[url_rtsp]
 
-            # Đọc và cập nhật file rtsp_urls.txt
+            # Cập nhật file rtsp_urls.txt
             urls = []
             with open('rtsp_urls.txt', 'r') as file:
                 urls = [line.strip() for line in file.readlines()]
 
-            # Xóa URL khỏi danh sách
             if url_rtsp in urls:
                 urls.remove(url_rtsp)
 
@@ -93,8 +101,18 @@ def delete_camera(url_rtsp):
                     file.write(f"{url}\n")
 
             print(f"✅ Đã xóa camera {url_rtsp} thành công")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Đã xóa camera thành công'
+            })
+            
     except Exception as e:
         print(f"❌ Lỗi khi xóa camera: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Lỗi khi xóa camera: {str(e)}'
+        }), 500
 
 @app.route('/api/get-cameras')
 def get_cameras():
@@ -148,6 +166,8 @@ if __name__ == '__main__':
         # Khởi động YOLO và thêm camera từ file txt
         start_yolo_and_cameras()
         print("✅ Đã khởi động hệ thống thành công")
+
+
         
         # Chạy Flask app
         app.run(host='0.0.0.0', port=8000, threaded=True)
