@@ -1,26 +1,29 @@
 from cover.library import *
 from utils.oop import CameraManager
-from utils.utils import check_and_reset_detections,capture_and_upload_image
+from utils.utils import capture_and_upload_image
 from send_be.send_comunitication import send_alert_fire, send_alert_smoke
 
 alerts = {}
 warnings = {}
 
 # Hằng số cho delay giữa các lần gửi và thời gian phát hiện
-SEND_DELAY = 25  # 25 giây
-DETECTION_THRESHOLD = 1  # 1 giây
+SEND_DELAY = 10  # 10 giây
+DETECTION_THRESHOLD = 0.7  # 0.6 giây
 
-# Thời điểm gửi cảnh báo cuối cùng
-last_fire_send = 0
-last_smoke_send = 0 
-last_behavior_send = 0
-
-# Thời điểm bắt đầu phát hiện
-fire_start_time = 0
-smoke_start_time = 0
-behavior_start_time = 0
+# Dictionary lưu trữ thông tin cho từng camera
+camera_states = {}
 
 camera_manager = CameraManager()
+
+def init_camera_state(camera_id):
+    camera_states[camera_id] = {
+        'last_fire_send': 0,
+        'last_smoke_send': 0,
+        'last_behavior_send': 0,
+        'fire_start_time': 0,
+        'smoke_start_time': 0,
+        'behavior_start_time': 0
+    }
 
 def start_yolo_and_cameras():
     try:
@@ -46,9 +49,11 @@ def start_yolo_and_cameras():
 
 # Luồng chạy camera chính
 def generate_frames(camera_id):
-    global last_fire_send, last_smoke_send, last_behavior_send
-    global fire_start_time, smoke_start_time, behavior_start_time
+    # Khởi tạo state cho camera nếu chưa có
+    if camera_id not in camera_states:
+        init_camera_state(camera_id)
     
+    state = camera_states[camera_id]
     camera = camera_manager.get_camera(camera_id)
     if not camera:
         return
@@ -58,61 +63,74 @@ def generate_frames(camera_id):
         if frame is None:
             continue
             
-        results = camera_manager.model.predict(frame, imgsz=640, conf=0.6, verbose=False)
+        results = camera_manager.model.predict(frame, imgsz=640, conf=0.5, verbose=False)
         current_time = time.time()
         
         fire_detected = False
         smoke_detected = False
         behavior_detected = False
         
+        frame_to_process = frame.copy()
+        
         for r in results:
             boxes = r.boxes
-  
             for box in boxes:
                 c = box.cls
                 
                 # Phát hiện hành vi hút thuốc
                 if c == 0:
                     behavior_detected = True
-                    if behavior_start_time == 0:
-                        behavior_start_time = current_time
-                    elif (current_time - behavior_start_time >= DETECTION_THRESHOLD and 
-                          current_time - last_behavior_send >= SEND_DELAY):
-                        file_path = capture_and_upload_image(frame, "hanh_vi")
-                        send_alert_smoke(camera.rtsp_url, "hanh_vi")
-                        last_behavior_send = current_time
+                    if state['behavior_start_time'] == 0:
+                        state['behavior_start_time'] = current_time
+                    elif (current_time - state['behavior_start_time'] >= DETECTION_THRESHOLD and 
+                          current_time - state['last_behavior_send'] >= SEND_DELAY):
+                        try:
+                            file_path = capture_and_upload_image(frame_to_process, "hanh_vi")
+                            if file_path:
+                                send_alert_smoke(camera.rtsp_url, "hanh_vi")
+                                state['last_behavior_send'] = current_time
+                        except Exception as e:
+                            print(f"Lỗi xử lý hành vi camera {camera_id}: {str(e)}")
                 
                 # Phát hiện lửa        
                 elif c == 1:
                     fire_detected = True
-                    if fire_start_time == 0:
-                        fire_start_time = current_time
-                    elif (current_time - fire_start_time >= DETECTION_THRESHOLD and 
-                          current_time - last_fire_send >= SEND_DELAY):
-                        file_path = capture_and_upload_image(frame, "lua")
-                        send_alert_fire(camera.rtsp_url, "lua") 
-                        last_fire_send = current_time
+                    if state['fire_start_time'] == 0:
+                        state['fire_start_time'] = current_time
+                    elif (current_time - state['fire_start_time'] >= DETECTION_THRESHOLD and 
+                          current_time - state['last_fire_send'] >= SEND_DELAY):
+                        try:
+                            file_path = capture_and_upload_image(frame_to_process, "lua")
+                            if file_path:
+                                send_alert_fire(camera.rtsp_url, "lua")
+                                state['last_fire_send'] = current_time
+                        except Exception as e:
+                            print(f"Lỗi xử lý lửa camera {camera_id}: {str(e)}")
                 
                 # Phát hiện khói
                 elif c == 2:
                     smoke_detected = True
-                    if smoke_start_time == 0:
-                        smoke_start_time = current_time
-                    elif (current_time - smoke_start_time >= DETECTION_THRESHOLD and 
-                          current_time - last_smoke_send >= SEND_DELAY):
-                        file_path = capture_and_upload_image(frame, "khoi")
-                        send_alert_smoke(camera.rtsp_url, "khoi")
-                        last_smoke_send = current_time
+                    if state['smoke_start_time'] == 0:
+                        state['smoke_start_time'] = current_time
+                    elif (current_time - state['smoke_start_time'] >= DETECTION_THRESHOLD and 
+                          current_time - state['last_smoke_send'] >= SEND_DELAY):
+                        try:
+                            file_path = capture_and_upload_image(frame_to_process, "khoi")
+                            if file_path:
+                                send_alert_smoke(camera.rtsp_url, "khoi")
+                                state['last_smoke_send'] = current_time
+                        except Exception as e:
+                            print(f"Lỗi xử lý khói camera {camera_id}: {str(e)}")
 
             frame = r.plot()
             
         # Reset thời gian bắt đầu nếu không phát hiện
         if not behavior_detected:
-            behavior_start_time = 0
+            state['behavior_start_time'] = 0
         if not fire_detected:
-            fire_start_time = 0
+            state['fire_start_time'] = 0
         if not smoke_detected:
-            smoke_start_time = 0
+            state['smoke_start_time'] = 0
             
         # Cập nhật trạng thái cảnh báo
         alerts[camera_id] = {

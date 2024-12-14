@@ -68,40 +68,33 @@ def delete_camera(url_rtsp):
 
         # Kiểm tra camera có tồn tại không
         if url_rtsp in camera_manager.cameras:
-            # Dừng camera trước
             camera = camera_manager.cameras[url_rtsp]
-            camera.stop()
             
-            # Đợi một chút để đảm bảo thread đã dừng
-            time.sleep(0.5)
+            # Dừng camera trong thread riêng
+            def stop_camera():
+                camera.stop()
+                del camera_manager.cameras[url_rtsp]
+                
+                # Xóa khỏi alerts và warnings
+                alerts.pop(url_rtsp, None)
+                warnings.pop(url_rtsp, None)
+                
+            thread = threading.Thread(target=stop_camera)
+            thread.start()
+            thread.join(timeout=2.0)  
             
-            # Sau đó mới xóa khỏi dictionary
-            del camera_manager.cameras[url_rtsp]
-            
-            # Xóa khỏi alerts và warnings
-            if url_rtsp in alerts:
-                del alerts[url_rtsp]
-            if url_rtsp in warnings:
-                del warnings[url_rtsp]
-
             # Cập nhật file rtsp_urls.txt
-            urls = []
             with open('rtsp_urls.txt', 'r') as file:
-                urls = [line.strip() for line in file.readlines()]
-
+                urls = [line.strip() for line in file.readlines() if line.strip()]
+            
             if url_rtsp in urls:
                 urls.remove(url_rtsp)
-
-            # Lọc bỏ các dòng trống
-            urls = [url for url in urls if url.strip()]
-
-            # Ghi lại file với danh sách URL đã cập nhật
+                
             with open('rtsp_urls.txt', 'w') as file:
                 for url in urls:
                     file.write(f"{url}\n")
 
             print(f"✅ Đã xóa camera {url_rtsp} thành công")
-            
             return jsonify({
                 'success': True,
                 'message': 'Đã xóa camera thành công'
@@ -110,7 +103,7 @@ def delete_camera(url_rtsp):
     except Exception as e:
         print(f"❌ Lỗi khi xóa camera: {str(e)}")
         return jsonify({
-            'success': False,
+            'success': False, 
             'message': f'Lỗi khi xóa camera: {str(e)}'
         }), 500
 
