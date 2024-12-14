@@ -144,7 +144,7 @@ def receive_camera():
         return jsonify({
             'success': True,
             'message': 'Đã thêm camera thành công'
-        })
+        }), 200
 
     except Exception as e:
         print(f"❌ Lỗi khi thêm camera: {str(e)}")
@@ -163,6 +163,6 @@ if __name__ == '__main__':
 
         
         # Chạy Flask app
-        app.run(host='0.0.0.0', port=8000, threaded=True)
+        app.run(host='127.0.0.1', port=8000, threaded=True)
     except Exception as e:
         print(f"❌ Lỗi khởi động hệ thống: {str(e)}")

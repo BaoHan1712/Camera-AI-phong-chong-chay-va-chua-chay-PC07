@@ -1,14 +1,17 @@
 from cover.library import *
 from utils.oop import CameraManager
 from utils.utils import capture_and_upload_image
-from send_be.send_comunitication import send_alert_fire, send_alert_smoke
+from send_be.send_comunitication import send_alert_fire, send_alert_smoke, normal_to_device
 
 alerts = {}
 warnings = {}
 
 # Hằng số cho delay giữa các lần gửi và thời gian phát hiện
-SEND_DELAY = 10  # 10 giây
-DETECTION_THRESHOLD = 0.7  # 0.6 giây
+SEND_DELAY = 15 
+DETECTION_THRESHOLD = 0.7  
+
+# Thêm hằng số cho thời gian reset
+NORMAL_THRESHOLD = 120
 
 # Dictionary lưu trữ thông tin cho từng camera
 camera_states = {}
@@ -22,7 +25,10 @@ def init_camera_state(camera_id):
         'last_behavior_send': 0,
         'fire_start_time': 0,
         'smoke_start_time': 0,
-        'behavior_start_time': 0
+        'behavior_start_time': 0,
+        'last_fire_detected': 0,    
+        'last_smoke_detected': 0,
+        'last_behavior_detected': 0
     }
 
 def start_yolo_and_cameras():
@@ -80,6 +86,7 @@ def generate_frames(camera_id):
                 # Phát hiện hành vi hút thuốc
                 if c == 0:
                     behavior_detected = True
+                    state['last_behavior_detected'] = current_time
                     if state['behavior_start_time'] == 0:
                         state['behavior_start_time'] = current_time
                     elif (current_time - state['behavior_start_time'] >= DETECTION_THRESHOLD and 
@@ -95,6 +102,7 @@ def generate_frames(camera_id):
                 # Phát hiện lửa        
                 elif c == 1:
                     fire_detected = True
+                    state['last_fire_detected'] = current_time
                     if state['fire_start_time'] == 0:
                         state['fire_start_time'] = current_time
                     elif (current_time - state['fire_start_time'] >= DETECTION_THRESHOLD and 
@@ -110,6 +118,7 @@ def generate_frames(camera_id):
                 # Phát hiện khói
                 elif c == 2:
                     smoke_detected = True
+                    state['last_smoke_detected'] = current_time
                     if state['smoke_start_time'] == 0:
                         state['smoke_start_time'] = current_time
                     elif (current_time - state['smoke_start_time'] >= DETECTION_THRESHOLD and 
@@ -124,6 +133,27 @@ def generate_frames(camera_id):
 
             frame = r.plot()
             
+        # Kiểm tra và gửi trạng thái bình thường
+        try:
+            if current_time - state.get('last_normal_check', 0) >= 120:  
+                state['last_normal_check'] = current_time
+                
+                # Kiểm tra từng trạng thái riêng biệt
+                if not fire_detected and (current_time - state['last_fire_detected']) >= NORMAL_THRESHOLD:
+                    normal_to_device(camera.rtsp_url, "lua")
+                    state['last_fire_detected'] = 0  # Reset thời gian phát hiện
+                
+                if not smoke_detected and (current_time - state['last_smoke_detected']) >= NORMAL_THRESHOLD:
+                    normal_to_device(camera.rtsp_url, "khoi")
+                    state['last_smoke_detected'] = 0  # Reset thời gian phát hiện
+                
+                if not behavior_detected and (current_time - state['last_behavior_detected']) >= NORMAL_THRESHOLD:
+                    normal_to_device(camera.rtsp_url, "hanh_vi")
+                    state['last_behavior_detected'] = 0  # Reset thời gian phát hiện
+                    
+        except Exception as e:
+            print(f"Lỗi kiểm tra trạng thái bình thường: {str(e)}")
+
         # Reset thời gian bắt đầu nếu không phát hiện
         if not behavior_detected:
             state['behavior_start_time'] = 0

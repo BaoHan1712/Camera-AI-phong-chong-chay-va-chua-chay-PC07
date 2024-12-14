@@ -36,12 +36,12 @@ def send_alert_smoke(rtsp_url, warning_type):
 # Gửi trạng thái bình thường tới BE
 def normal_to_device(rtsp_url, detection_type):
     try:
+        
         api_url = "https://api.vinafire.cloud/api/devices/normal-to-device"
-        response = requests.post(api_url,params={"rtspUrl": rtsp_url})
+        response = requests.post(api_url, params={"rtspUrl": rtsp_url})
         print(f"✅ trạng thái {detection_type} bình thường")
+            
     except Exception as e:
         print(f"❌ Lỗi trạng thái {detection_type} bình thường: {str(e)}")
 
-
-      
 

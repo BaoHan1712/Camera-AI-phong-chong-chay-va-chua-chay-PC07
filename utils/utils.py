@@ -5,7 +5,7 @@ import os
 import uuid
 # Thêm đường dẫn tới thư mục cha chứa send_be
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from send_be.send_comunitication import normal_to_device
+
 
 
     
@@ -64,13 +64,8 @@ def capture_and_upload_image(frame, detection_type):
     temp_filepath = os.path.join(temp_dir, filename)
     
     try:
-        # Tạo bản sao của frame để xử lý
         frame_copy = frame.copy()
-        
-        # Lưu frame thành file ảnh với bản sao
         cv2.imwrite(temp_filepath, frame_copy)
-        
-        # Upload ảnh lên S3
         file_path = upload_image_to_s3(temp_filepath, detection_type)
         
         # Xóa file tạm sau khi upload
